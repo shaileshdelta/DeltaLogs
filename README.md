@@ -2,32 +2,51 @@
 
 This is a shared logging library for ASP.NET Core Web APIs.
 
-## Easy Integration via NuGet
+## Automatic Installation (Recommended)
 
-You can install this logger as a NuGet package, which is the easiest way to reuse it across projects.
+To allow `dotnet add package DeltaLogs` to work from anywhere without manual steps, this project is configured to automatically publish to NuGet.org via GitHub Actions.
 
-### Step 1: Create the Package (One Time)
+### Prerequisite: Setup NuGet API Key (One Time)
 
-Open a terminal in the `DeltaLogs` directory and run:
+1. Create an account on [NuGet.org](https://www.nuget.org/).
+2. Go to **API Keys** -> **Create**.
+3. Copy the key.
+4. Go to your GitHub Repository -> **Settings** -> **Secrets and variables** -> **Actions**.
+5. Click **New repository secret**.
+   - Name: `NUGET_API_KEY`
+   - Value: (Paste your key here)
+6. Push your code to GitHub.
+
+### How to Install in Any Project
+
+Once setup, you can simply run:
+
+```bash
+dotnet add package DeltaLogs
+```
+
+No manual packing or file copying required!
+
+## Manual / Local Installation
+
+If you do not want to use NuGet.org, you can still use it locally:
+
+### Step 1: Create the Package
 
 ```bash
 dotnet pack -c Release -o LocalNuget
 ```
 
-This will create a `.nupkg` file in a `LocalNuget` folder.
-
-### Step 2: Install the Package
-
-In your other API projects, you can install it from your local folder:
+### Step 2: Install from Local Folder
 
 ```bash
-dotnet nuget add source "Path\To\DeltaLogger\DeltaLogs\LocalNuget" -n LocalDeltaLogs
+dotnet nuget add source "D:\Path\To\DeltaLogs\LocalNuget" -n LocalDeltaLogs
 dotnet add package DeltaLogs
 ```
 
-### Step 3: Configure Program.cs
+## Configuration (Program.cs)
 
-Add the following two lines to your `Program.cs`:
+Add the following lines to your `Program.cs`:
 
 ```csharp
 using DeltaLogs.Extensions;
@@ -43,15 +62,4 @@ var app = builder.Build();
 app.UseDeltaLogger();
 
 app.Run();
-```
-
-### Optional: Configuration
-
-By default, logs are saved to `wwwroot/Logs`. If you want to change this, add to `appsettings.json`:
-
-```json
-{
-  "General": { "BasePath": "wwwroot" },
-  "LoggerPath": { "RelativePath": "Logs/" }
-}
 ```
