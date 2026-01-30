@@ -10,6 +10,8 @@
     <Authors>ShaileshKanoriya</Authors>
     <Company>DeltaLogs</Company>
     <Description>Shared logging library for ASP.NET Core Web APIs</Description>
+    <RepositoryUrl>https://github.com/shaileshdelta/DeltaLogs</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
