@@ -22,5 +22,9 @@ namespace DeltaLogs.Models
         public int? ErrorLine { get; set; }
         public string? StackTrace { get; set; }
         public List<string>? FailedSqlEntries { get; set; }
+        public string? EndpointName { get; set; }
+        public string? Route { get; set; }
+        public List<string>? CallStack { get; set; }
+        public List<string>? SqlEntries { get; set; }
     }
 }

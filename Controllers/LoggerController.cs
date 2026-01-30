@@ -88,6 +88,10 @@ namespace DeltaLogs.Controllers
                     ErrorLine = l.Success ? null : l.ErrorLine,
                     StackTrace = l.Success ? null : l.StackTrace,
                     FailedSqlEntries = l.FailedSqlEntries,
+                    SqlEntries = l.SqlEntries,
+                    EndpointName = l.EndpointName,
+                    Route = l.Route,
+                    CallStack = l.CallStack,
                     StatusCode = l.StatusCode,
                     ClientIP = l.ClientIP
                 }).ToList();

@@ -1,7 +1,9 @@
 using DeltaLogs.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
+using DeltaLogs.SqlLogging;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,6 +18,28 @@ namespace DeltaLogs.Middleware
     {
         private readonly RequestDelegate _next;
         private readonly string _logDir;
+        private static bool IsFrameworkNamespace(string ns)
+        {
+            if (string.IsNullOrEmpty(ns)) return false;
+            return ns.StartsWith("System", StringComparison.OrdinalIgnoreCase)
+                || ns.StartsWith("Microsoft", StringComparison.OrdinalIgnoreCase)
+                || ns.StartsWith("Serilog", StringComparison.OrdinalIgnoreCase)
+                || ns.StartsWith("Newtonsoft", StringComparison.OrdinalIgnoreCase)
+                || ns.StartsWith("Swashbuckle", StringComparison.OrdinalIgnoreCase)
+                || ns.StartsWith("DeltaLogs", StringComparison.OrdinalIgnoreCase);
+        }
+        private static string? ClassifyComponent(string? ns, string? typeName)
+        {
+            var name = (typeName ?? "").ToLowerInvariant();
+            var nsl = (ns ?? "").ToLowerInvariant();
+            if (name.Contains("controller") || nsl.Contains("controller")) return "Controller";
+            if (name.Contains("repository") || name.Contains("repo") || nsl.Contains("repository") || nsl.Contains("repo")) return "Repository";
+            if (name.Contains("service") || nsl.Contains("service")) return "Service";
+            if (name.Contains("handler") || nsl.Contains("handler")) return "Handler";
+            if (name.Contains("manager") || nsl.Contains("manager")) return "Manager";
+            if (name.Contains("dal") || nsl.Contains("dal") || nsl.Contains("dataaccess")) return "DAL";
+            return "App";
+        }
 
         public RequestLoggingMiddleware(RequestDelegate next, IConfiguration configuration)
         {
@@ -40,15 +64,18 @@ namespace DeltaLogs.Middleware
 
         public async Task InvokeAsync(HttpContext context)
         {
+            SqlLogger.BeginRequest();
             if (!context.Request.Path.StartsWithSegments("/api"))
             {
                 await _next(context);
+                SqlLogger.EndRequest();
                 return;
             }
             // Exclude the logger controller itself to avoid infinite logging loops or noise
             if (context.Request.Path.StartsWithSegments("/api/Logger/GetLogsByDate", StringComparison.OrdinalIgnoreCase))
             {
                 await _next(context);
+                SqlLogger.EndRequest();
                 return;
             }
 
@@ -98,21 +125,63 @@ namespace DeltaLogs.Middleware
                         var m = f.GetMethod();
                         var dt = m?.DeclaringType;
                         var ns = dt?.Namespace ?? "";
-                        // Made more generic to work across different projects
-                        if (ns.Contains(".Controllers") || ns.Contains(".Repository") || ns.Contains(".Services") ||
-                            ns.EndsWith("Controllers") || ns.EndsWith("Repository") || ns.EndsWith("Services"))
+                        if (!IsFrameworkNamespace(ns) && dt != null)
                         {
-                            errorClass = dt?.FullName;
+                            errorClass = dt.FullName;
                             errorMethod = m?.Name;
                             errorLine = f.GetFileLineNumber();
-                            if (ns.Contains("Controllers")) errorComponent = "Controller";
-                            else if (ns.Contains("Repository")) errorComponent = "Repository";
-                            else if (ns.Contains("Services")) errorComponent = "Service";
+                            errorComponent = ClassifyComponent(ns, dt.Name);
                             break;
+                        }
+                    }
+                    if (string.IsNullOrEmpty(errorClass))
+                    {
+                        foreach (var f in frames)
+                        {
+                            var m = f.GetMethod();
+                            var dt = m?.DeclaringType;
+                            var ns = dt?.Namespace ?? "";
+                            errorClass = dt?.FullName;
+                            errorMethod = m?.Name;
+                            var ln = f.GetFileLineNumber();
+                            if (ln > 0)
+                            {
+                                errorLine = ln;
+                                errorComponent = ClassifyComponent(ns, dt?.Name);
+                                break;
+                            }
                         }
                     }
                 }
                 stackTrace = ex.ToString();
+                try
+                {
+                    var __trace = new System.Diagnostics.StackTrace(ex, true);
+                    var __frames = __trace.GetFrames();
+                    var __cs = new List<string>();
+                    if (__frames != null)
+                    {
+                        foreach (var f in __frames)
+                        {
+                            var m = f.GetMethod();
+                            var dt = m?.DeclaringType;
+                            var li = f.GetFileLineNumber();
+                            var ns = dt?.Namespace ?? "";
+                            if (dt != null && !IsFrameworkNamespace(ns))
+                            {
+                                __cs.Add($"{dt.FullName}.{m?.Name}" + (li > 0 ? $" @line {li}" : ""));
+                            }
+                            if (__cs.Count >= 10) break;
+                        }
+                    }
+                    if (__cs.Count > 0)
+                    {
+                        context.Items["__DeltaLogs_CallStack"] = __cs;
+                    }
+                }
+                catch
+                {
+                }
                 throw;
             }
             finally
@@ -188,6 +257,12 @@ namespace DeltaLogs.Middleware
                     errorClass = cad.ControllerTypeInfo?.FullName;
                     errorMethod = cad.ActionName;
                 }
+                string? endpointName = endpoint?.DisplayName;
+                string? routeText = null;
+                if (endpoint is RouteEndpoint re)
+                {
+                    routeText = re.RoutePattern?.RawText;
+                }
 
                 var appFailure = appStatus.HasValue && (appStatus.Value >= 400 || appStatus.Value == 209);
                 var successFlag = (statusCode < 400) && !appFailure;
@@ -215,8 +290,26 @@ namespace DeltaLogs.Middleware
                     ErrorMethod = errorMethod,
                     ErrorLine = errorLine,
                     StackTrace = stackTrace,
-                    FailedSqlEntries = context.Items["FailedSqlEntries"] as List<string>
+                    FailedSqlEntries = context.Items["FailedSqlEntries"] as List<string>,
+                    EndpointName = endpointName,
+                    Route = routeText
                 };
+                var cs = context.Items["__DeltaLogs_CallStack"] as List<string>;
+                if (cs != null && cs.Count > 0)
+                {
+                    log.CallStack = cs;
+                }
+                var sqls = DeltaLogs.SqlLogging.SqlLogger.GetEntries();
+                if (sqls != null && sqls.Count > 0)
+                {
+                    log.SqlEntries = sqls;
+                }
+                var failed = DeltaLogs.SqlLogging.SqlLogger.GetFailedEntries();
+                if (failed != null && failed.Count > 0)
+                {
+                    log.FailedSqlEntries = failed;
+                }
+                DeltaLogs.SqlLogging.SqlLogger.EndRequest();
 
                 var json = JsonSerializer.Serialize(log);
                 var now = System.DateTime.UtcNow;
