@@ -63,3 +63,9 @@ app.UseDeltaLogger();
 
 app.Run();
 ```
+
+## GitHub Actions (Auto Publish to NuGet)
+- Repository secret name must be `NUGET_API_KEY` (value from NuGet.org).
+- After pushing to `main`, workflow publishes package automatically.
+- If workflow fails with “Source parameter was not specified”, set the secret and re-run.
+- New releases require increasing `<Version>` in `DeltaLogs.csproj` (e.g., 1.0.1).
