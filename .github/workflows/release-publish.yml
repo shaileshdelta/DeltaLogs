@@ -3,9 +3,9 @@ name: Release → NuGet Publish
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   release:
-    types: [ published ]
+    types: [published]
 
 jobs:
   publish:
@@ -34,5 +34,5 @@ jobs:
 
       - name: Publish to NuGet.org
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ secrets.DELTALOGS }}
         run: dotnet nuget push ./artifacts/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
