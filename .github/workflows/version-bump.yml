@@ -7,6 +7,8 @@ on:
 jobs:
   bump:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -73,6 +75,7 @@ jobs:
           NEW="${{ steps.version.outputs.new }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
           git add DeltaLogs.csproj
           git commit -m "chore(release): ${NEW}"
           git tag "v${NEW}"
