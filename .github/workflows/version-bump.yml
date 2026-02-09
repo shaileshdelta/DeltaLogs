@@ -3,6 +3,11 @@ name: Semantic Version Bump
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "README.md"
+      - "Features.md"
 
 jobs:
   bump:
