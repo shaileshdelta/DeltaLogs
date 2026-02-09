@@ -65,12 +65,14 @@ namespace DeltaLogs.Middleware
         public async Task InvokeAsync(HttpContext context)
         {
             SqlLogger.BeginRequest();
+
             if (!context.Request.Path.StartsWithSegments("/api"))
             {
                 await _next(context);
                 SqlLogger.EndRequest();
                 return;
             }
+            
             // Exclude the logger controller itself to avoid infinite logging loops or noise
             if (context.Request.Path.StartsWithSegments("/api/Logger/GetLogsByDate", StringComparison.OrdinalIgnoreCase))
             {

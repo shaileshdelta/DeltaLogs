@@ -1,71 +1,107 @@
 # DeltaLogs
 
-This is a shared logging library for ASP.NET Core Web APIs.
+**DeltaLogs** is a fully automated shared logging library for ASP.NET Core Web APIs. It provides zero-configuration request/response tracking, error monitoring, and SQL query logging out of the box.
 
-## Automatic Installation (Recommended)
+## 🚀 Key Features
 
-To allow `dotnet add package DeltaLogs` to work from anywhere without manual steps, this project is configured to automatically publish to NuGet.org via GitHub Actions.
+*   **Automatic Request & Response Logging**: Captures HTTP Method, URL, Body, Status Code, and Duration.
+*   **Smart Error Handling**: Automatically logs exceptions with full stack traces and classifies errors by component (Controller, Service, Repository, etc.).
+*   **SQL Query Monitoring**: Tracks successful and failed SQL commands.
+*   **Zero Database Dependency**: Logs are stored in a structured file system (Year -> Month -> Day).
+*   **Built-in Log Viewer**: Includes an API endpoint to view logs without accessing the server files.
 
-### Prerequisite: Setup NuGet API Key (One Time)
+---
 
-1. Create an account on [NuGet.org](https://www.nuget.org/).
-2. Go to **API Keys** -> **Create**.
-3. Copy the key.
-4. Go to your GitHub Repository -> **Settings** -> **Secrets and variables** -> **Actions**.
-5. Click **New repository secret**.
-   - Name: `NUGET_API_KEY`
-   - Value: (Paste your key here)
-6. Push your code to GitHub.
+## 📦 Installation
 
-### How to Install in Any Project
-
-Once setup, you can simply run:
+Install the package via NuGet:
 
 ```bash
 dotnet add package DeltaLogs
 ```
 
-No manual packing or file copying required!
-
-## Manual / Local Installation
-
-If you do not want to use NuGet.org, you can still use it locally:
-
-### Step 1: Create the Package
-
-```bash
-dotnet pack -c Release -o LocalNuget
+Or via Package Manager Console:
+```powershell
+Install-Package DeltaLogs
 ```
 
-### Step 2: Install from Local Folder
+---
 
-```bash
-dotnet nuget add source "D:\Path\To\DeltaLogs\LocalNuget" -n LocalDeltaLogs
-dotnet add package DeltaLogs
+## 🛠 Usage & Configuration (Step-by-Step)
+
+Follow these simple steps to integrate DeltaLogs into your ASP.NET Core Web API.
+
+### Step 1: Configure AppSettings (Optional)
+
+By default, logs are stored in `wwwroot/Logs`. You can customize this path in `appsettings.json`.
+
+```json
+{
+  "General": {
+    "BasePath": "wwwroot"  // Base directory (default: wwwroot)
+  },
+  "LoggerPath": {
+    "RelativePath": "Logs" // Sub-directory for logs (default: Logs)
+  }
+}
 ```
 
-## Configuration (Program.cs)
+### Step 2: Register Services (Program.cs)
 
-Add the following lines to your `Program.cs`:
+In your `Program.cs` file, add the DeltaLogs services **before** `builder.Build()`.
 
 ```csharp
-using DeltaLogs.Extensions;
+using DeltaLogs.Extensions; // Import namespace
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add Services
-builder.Services.AddDeltaLogger();
+// ... other services ...
+
+// Add DeltaLogs services (This registers the log viewer controller)
+builder.Services.AddDeltaLogger(); 
 
 var app = builder.Build();
+```
 
-// 2. Use Middleware
-app.UseDeltaLogger();
+### Step 3: Add Middleware (Program.cs)
+
+In the same `Program.cs` file, add the middleware **before** `app.Run()`.
+
+**Important:** Add `app.UseDeltaLogger()` as early as possible in the middleware pipeline (usually after `UseHttpsRedirection` and before `MapControllers`) to ensure it captures all requests.
+
+```csharp
+// ... after app is built ...
+
+app.UseHttpsRedirection();
+
+// Enable DeltaLogs Middleware
+app.UseDeltaLogger(); 
+
+app.UseAuthorization();
+app.MapControllers();
 
 app.Run();
 ```
 
-## GitHub Actions (Auto Publish to NuGet)
-- Repository secret name must be `NUGET_API_KEY` (value from NuGet.org).
-- After pushing to `main`, workflow publishes package automatically.
-- If workflow fails with “Source parameter was not specified”, set the secret and re-run.
-- New releases require increasing `<Version>` in `DeltaLogs.csproj` (e.g., 1.0.1).
+
+
+
+## 🗄️ SQL Logging (Optional)
+
+To log SQL queries manually within your application (e.g., in your Dapper or ADO.NET repositories):
+
+```csharp
+using DeltaLogs.SqlLogging;
+
+// Log a successful query
+SqlLogger.Add("SELECT * FROM Users WHERE Id = 1");
+
+// Log a failed query
+SqlLogger.AddFailed("INSERT INTO Logs ... (failed)");
+```
+
+These SQL logs will be automatically attached to the corresponding HTTP request log entry.
+
+---
+
+
