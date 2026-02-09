@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>DeltaLogs</PackageId>
-    <Version>1.1.0</Version>
+    <Version>1.1.2</Version>
     <Authors>ShaileshKanoriya</Authors>
     <Company>DeltaLogs</Company>
     <Description>Shared logging library for ASP.NET Core Web APIs</Description>
